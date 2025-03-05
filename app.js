@@ -4,7 +4,9 @@ const morgan = require("morgan");
 require("dotenv").config();
 
 const authRoutes = require("./routes/auth");
-const usersRoute = require('./routes/users')
+const usersRoute = require('./routes/users');
+const groupRoutes = require("./routes/group");
+const userProfiles = require('./routes/userProfiles');
 
 const app = express();
 
@@ -15,6 +17,8 @@ app.use(morgan("dev"));
 
 // Routes
 app.use("/auth", authRoutes);
-app.use('/api/users', usersRoute);
+app.use('/users', usersRoute);
+app.use("/group", groupRoutes);
+app.use("/userProfiles", userProfiles);
 
 module.exports = app;
