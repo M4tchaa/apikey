@@ -7,6 +7,7 @@ const authRoutes = require("./routes/auth");
 const usersRoute = require('./routes/users');
 const groupRoutes = require("./routes/group");
 const userProfiles = require('./routes/userProfiles');
+const challenge = require('./routes/challenge');
 
 const app = express();
 
@@ -20,5 +21,6 @@ app.use("/auth", authRoutes);
 app.use('/users', usersRoute);
 app.use("/group", groupRoutes);
 app.use("/userProfiles", userProfiles);
+app.use("/challenge", challenge);
 
 module.exports = app;
