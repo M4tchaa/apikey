@@ -175,7 +175,8 @@ router.post("/forgot-password", async (req, res) => {
       );
       console.log("[FORGOT PASSWORD] Token reset password dibuat:", resetToken);
   
-      const resetLink = `https://apikey.yukngajibogor.com/auth/reset-password/${resetToken}`;
+      const resetLink = `https://key.yukngajibogor.com/reset-password/${resetToken}`;
+      // const resetLink = `https://apikey.yukngajibogor.com/auth/reset-password/${resetToken}`;
       console.log("[FORGOT PASSWORD] Reset link:", resetLink);
   
       // Kirim email reset password
