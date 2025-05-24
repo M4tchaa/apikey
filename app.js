@@ -8,6 +8,7 @@ const usersRoute = require('./routes/users');
 const groupRoutes = require("./routes/group");
 const userProfiles = require('./routes/userProfiles');
 const challenge = require('./routes/challenge');
+const modules = require('./routes/modules');
 
 const app = express();
 
@@ -22,5 +23,6 @@ app.use('/users', usersRoute);
 app.use("/group", groupRoutes);
 app.use("/userProfiles", userProfiles);
 app.use("/challenge", challenge);
+app.use("/modules", modules);
 
 module.exports = app;
