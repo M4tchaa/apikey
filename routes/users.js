@@ -68,7 +68,6 @@ router.post('/', async (req, res) => {
 });
 
 // PUT Update user dan profile berdasarkan id_user
-// PUT Update user dan profile berdasarkan id_user
 router.put('/:id_user', async (req, res) => {
   try {
     const { id_user } = req.params;
@@ -165,6 +164,29 @@ router.put('/:id_user', async (req, res) => {
     }
 
     res.json({ success: true, message: 'User and profile updated successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// DELETE user dan profil
+router.delete('/:id_user', async (req, res) => {
+  try {
+    const { id_user } = req.params;
+
+    // Cek apakah user ada
+    const [userCheck] = await db.execute('SELECT * FROM users WHERE id_user = ?', [id_user]);
+    if (userCheck.length === 0) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    // Soft delete: tandai user sebagai terhapus
+    await db.execute('UPDATE users SET deleted = 1 WHERE id_user = ?', [id_user]);
+
+    // Hapus profil dari tabel user_profiles
+    await db.execute('DELETE FROM user_profiles WHERE id_user = ?', [id_user]);
+
+    res.json({ success: true, message: 'User berhasil dihapus' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
