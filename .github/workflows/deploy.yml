@@ -26,4 +26,10 @@ jobs:
             **/.git*
             **/.github*
             **/node_modules*
-            README.md
+            **/tmp/*
+            **/*.log
+            **/*.sql
+            **/README.md
+            **/*.zip
+          dangerously-ignore-upload-errors: true
+
