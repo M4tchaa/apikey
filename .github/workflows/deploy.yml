@@ -1,35 +1,29 @@
 name: Deploy Backend via FTP
 
 on:
-  workflow_dispatch:  # Trigger manual dari GitHub UI
+  workflow_dispatch:
   push:
     branches:
-      - deploys  # Hanya trigger jika kamu push ke branch ini
+      - deploys
 
 jobs:
   ftp-deploy:
     if: github.actor == 'M4tchaa'
-    name: Upload to Shared Hosting
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install FTP Deploy Tool
-        run: npm install -g ftp-deploy
-
-      - name: Upload Backend via FTP
-        run: |
-          npx ftp-deploy \
-            --user "${{ secrets.FTP_USERNAME }}" \
-            --password "${{ secrets.FTP_PASSWORD }}" \
-            --host "${{ secrets.FTP_HOST }}" \
-            --local "." \
-            --remote "${{ secrets.FTP_REMOTE_DIR }}" \
-            --port 21 \
-            --protocol ftp \
-            --exclude ".git/**,.github/**,node_modules/**,README.md"
-
-        env:
-          CI: false
+      - name: FTP Deploy using SamKirkland Action
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: ${{ secrets.FTP_REMOTE_DIR }}
+          exclude: |
+            **/.git*
+            **/.github*
+            **/node_modules*
+            README.md
