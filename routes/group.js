@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db'); 
 
-// 🔍 GET all groups
+// 🔍 GET all groups tes Deploy CI CD
 router.get('/', async (req, res) => {
   try {
     const [groups] = await db.execute("SELECT group_id, name FROM team_group");

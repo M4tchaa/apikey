@@ -8,6 +8,7 @@ on:
 
 jobs:
   ftp-deploy:
+    if: github.actor == 'M4tchaa'
     name: Upload to Shared Hosting
     runs-on: ubuntu-latest
 
