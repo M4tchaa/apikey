@@ -144,24 +144,31 @@ router.post(
         { expiresIn: "7d" }
       );
 
-      // Kirim access + simpan refresh ke cookie
-      res
-        .cookie("refreshToken", refreshToken, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "Strict",
-          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 hari
-        })
-        .json({ message: "Login berhasil", token });
-
-      connection.release();
-      res.json({ message: "Login berhasil", token });
+    // Kirim access + simpan refresh ke cookie
+    connection.release(); // pastikan release dilakukan sebelum return
+    
+    return res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "Strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 hari
+    }).json({
+      message: "Login berhasil",
+      token,
+      user: {
+        id_user: user.id_user,
+        email: user.email,
+        username: user.username,
+        role: user.role,
+      },
+    });
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: "Terjadi kesalahan server" });
     }
   }
 );
+
 // Endpoint untuk request reset password
 router.post("/forgot-password", async (req, res) => {
   const { email } = req.body;
@@ -191,8 +198,8 @@ router.post("/forgot-password", async (req, res) => {
     );
     console.log("[FORGOT PASSWORD] Token reset password dibuat:", resetToken);
 
-    const resetLink = `https://key.yukngajibogor.com/reset-password/${resetToken}`;
-    // const resetLink = `https://apikey.yukngajibogor.com/auth/reset-password/${resetToken}`;
+    // const resetLink = `https://key.yukngajibogor.com/auth/reset-password/${resetToken}`;
+    const resetLink = `https://apikey.yukngajibogor.com/auth/reset-password/${resetToken}`;
     console.log("[FORGOT PASSWORD] Reset link:", resetLink);
 
     // Kirim email reset password

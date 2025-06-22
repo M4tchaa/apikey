@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const authenticate = require("../middleware/authenticate");
+const isSuperAdmin = require("../middleware/isSuperAdmin");
 const db = require('../db'); // Import koneksi database
 
 // GET semua users dengan JOIN ke user_profiles
@@ -67,6 +69,7 @@ router.post('/', async (req, res) => {
   }
 });
 
+// PUT Update user dan profile berdasarkan id_user
 // PUT Update user dan profile berdasarkan id_user
 router.put('/:id_user', async (req, res) => {
   try {
@@ -192,6 +195,27 @@ router.delete('/:id_user', async (req, res) => {
   }
 });
 
+// HARD DELETE user dan profil (khusus superadmin)
+router.delete('/hard/:id_user', [authenticate, isSuperAdmin], async (req, res) => {
+  try {
+    const { id_user } = req.params;
 
+    // Cek apakah target user ada
+    const [userCheck] = await db.execute('SELECT * FROM users WHERE id_user = ?', [id_user]);
+    if (userCheck.length === 0) {
+      return res.status(404).json({ success: false, message: "User tidak ditemukan." });
+    }
+
+    // Hapus profil dulu (jika ada)
+    await db.execute('DELETE FROM user_profiles WHERE id_user = ?', [id_user]);
+
+    // Hapus user utama
+    await db.execute('DELETE FROM users WHERE id_user = ?', [id_user]);
+
+    res.json({ success: true, message: 'User berhasil dihapus secara permanen.' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
 
 module.exports = router;

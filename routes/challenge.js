@@ -4,26 +4,54 @@ const router = express.Router();
 const authenticate = require("../middleware/authenticate");
 const isAdmin = require("../middleware/isAdmin");
 
-// =========================================
-// ============= PESERTA ===================
-// =========================================
+// ==================== HEADER CHALLENGE ====================
 
+// GET /challenge/me
 router.get("/me", authenticate, async (req, res) => {
   try {
     const userId = req.user.id;
     const connection = await pool.getConnection();
-    const [rows] = await connection.execute(
-      "SELECT * FROM amazing_challenge WHERE id_participant = ? ORDER BY day",
+
+    const [challenges] = await connection.execute(
+      "SELECT id_challenge, level, day, completed, created_at FROM amazing_challenge WHERE id_participant = ? ORDER BY day",
       [userId]
     );
+
+    const result = [];
+
+    for (const challenge of challenges) {
+      let description = null;
+
+      if (challenge.level === 1) {
+        const [akidahRows] = await connection.execute(
+          "SELECT challenge_response FROM amazing_challenge_akidah WHERE id_challenge = ? LIMIT 1",
+          [challenge.id_challenge]
+        );
+        description = akidahRows[0]?.challenge_response || null;
+      } else {
+        const [detailRows] = await connection.execute(
+          "SELECT challenge_response FROM amazing_challenge_detail WHERE id_challenge = ? LIMIT 1",
+          [challenge.id_challenge]
+        );
+        description = detailRows[0]?.challenge_response || null;
+      }
+
+      result.push({
+        ...challenge,
+        description, // override dengan challenge_response
+      });
+    }
+
     connection.release();
-    res.json(rows);
+    res.json(result);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Gagal mengambil data challenge" });
   }
 });
 
+
+// POST /challenge/start
 router.post("/start", authenticate, async (req, res) => {
   const { day, level } = req.body;
   const userId = req.user.id;
@@ -48,7 +76,8 @@ router.post("/start", authenticate, async (req, res) => {
     connection.release();
     res.status(201).json({
       message: "Challenge berhasil dibuat",
-      id_challenge: result.insertId
+      id_challenge: result.insertId,
+      level
     });
   } catch (err) {
     console.error(err);
@@ -56,7 +85,10 @@ router.post("/start", authenticate, async (req, res) => {
   }
 });
 
-router.post("/details", authenticate, async (req, res) => {
+// ==================== NON-AKIDAH (4 DETAIL) ====================
+
+// POST /challenge/detail
+router.post("/detail", authenticate, async (req, res) => {
   const { id_challenge, challenges } = req.body;
 
   if (!Array.isArray(challenges) || challenges.length !== 4) {
@@ -66,32 +98,17 @@ router.post("/details", authenticate, async (req, res) => {
   try {
     const connection = await pool.getConnection();
 
-    const [[header]] = await connection.execute(
-      "SELECT level FROM amazing_challenge WHERE id_challenge = ?",
-      [id_challenge]
-    );
-
-    if (!header) {
-      connection.release();
-      return res.status(404).json({ message: "Header challenge tidak ditemukan" });
-    }
-
-    const isAkidah = header.level === 1;
-    const table = isAkidah ? "amazing_challenge_akidah" : "amazing_challenge_detail";
-
     for (const ch of challenges) {
       await connection.execute(
-        `INSERT INTO ${table} 
-         (id_challenge, ${isAkidah ? "" : "challenge_title,"} challenge_response, is_completed) 
-         VALUES (?, ${isAkidah ? "" : "?,"} ?, ?)`,
-        isAkidah
-          ? [id_challenge, ch.challenge_response ?? null, ch.is_completed ?? 0]
-          : [id_challenge, ch.challenge_title, ch.challenge_response ?? null, ch.is_completed ?? 0]
+        `INSERT INTO amazing_challenge_detail 
+         (id_challenge, challenge_title, challenge_response, is_completed) 
+         VALUES (?, ?, ?, ?)`,
+        [id_challenge, ch.challenge_title, ch.challenge_response ?? null, ch.is_completed ?? 0]
       );
     }
 
     const [[{ total }]] = await connection.execute(
-      `SELECT COUNT(*) AS total FROM ${table} 
+      `SELECT COUNT(*) AS total FROM amazing_challenge_detail 
        WHERE id_challenge = ? AND is_completed = 1`,
       [id_challenge]
     );
@@ -109,31 +126,16 @@ router.post("/details", authenticate, async (req, res) => {
   }
 });
 
-router.get("/:id/details", authenticate, async (req, res) => {
+// GET /challenge/detail/:id
+router.get("/detail/:id", authenticate, async (req, res) => {
   const id_challenge = req.params.id;
 
   try {
     const connection = await pool.getConnection();
-
-    const [[header]] = await connection.execute(
-      "SELECT level FROM amazing_challenge WHERE id_challenge = ?",
-      [id_challenge]
-    );
-
-    if (!header) {
-      connection.release();
-      return res.status(404).json({ message: "Challenge tidak ditemukan" });
-    }
-
-    const table = header.level === 1
-      ? "amazing_challenge_akidah"
-      : "amazing_challenge_detail";
-
     const [rows] = await connection.execute(
-      `SELECT * FROM ${table} WHERE id_challenge = ? ORDER BY created_at`,
+      "SELECT * FROM amazing_challenge_detail WHERE id_challenge = ? ORDER BY id_detail",
       [id_challenge]
     );
-
     connection.release();
     res.json(rows);
   } catch (err) {
@@ -142,6 +144,7 @@ router.get("/:id/details", authenticate, async (req, res) => {
   }
 });
 
+// PUT /challenge/detail/:id
 router.put("/detail/:id", authenticate, async (req, res) => {
   const id_detail = req.params.id;
   const { challenge_response, is_completed } = req.body;
@@ -149,45 +152,18 @@ router.put("/detail/:id", authenticate, async (req, res) => {
   try {
     const connection = await pool.getConnection();
 
-    // Cari tahu dari detail mana asalnya
-    const [[checkDetail]] = await connection.execute(
-      "SELECT id_challenge FROM amazing_challenge_akidah WHERE id_challenge_ak = ?",
+    await connection.execute(
+      "UPDATE amazing_challenge_detail SET challenge_response = ?, is_completed = ? WHERE id_detail = ?",
+      [challenge_response, is_completed ?? 0, id_detail]
+    );
+
+    const [[{ id_challenge }]] = await connection.execute(
+      "SELECT id_challenge FROM amazing_challenge_detail WHERE id_detail = ?",
       [id_detail]
     );
 
-    let table, id_challenge;
-
-    if (checkDetail) {
-      table = "amazing_challenge_akidah";
-      id_challenge = checkDetail.id_challenge;
-
-      await connection.execute(
-        "UPDATE amazing_challenge_akidah SET challenge_response = ?, is_completed = ? WHERE id_challenge_ak = ?",
-        [challenge_response, is_completed ?? 0, id_detail]
-      );
-    } else {
-      const [[checkDetail2]] = await connection.execute(
-        "SELECT id_challenge FROM amazing_challenge_detail WHERE id_detail = ?",
-        [id_detail]
-      );
-
-      if (!checkDetail2) {
-        connection.release();
-        return res.status(404).json({ message: "Detail challenge tidak ditemukan" });
-      }
-
-      table = "amazing_challenge_detail";
-      id_challenge = checkDetail2.id_challenge;
-
-      await connection.execute(
-        "UPDATE amazing_challenge_detail SET challenge_response = ?, is_completed = ? WHERE id_detail = ?",
-        [challenge_response, is_completed ?? 0, id_detail]
-      );
-    }
-
-    // Update total completed
     const [[{ total_completed }]] = await connection.execute(
-      `SELECT COUNT(*) AS total_completed FROM ${table} WHERE id_challenge = ? AND is_completed = 1`,
+      "SELECT COUNT(*) AS total_completed FROM amazing_challenge_detail WHERE id_challenge = ? AND is_completed = 1",
       [id_challenge]
     );
 
@@ -204,10 +180,87 @@ router.put("/detail/:id", authenticate, async (req, res) => {
   }
 });
 
-// =========================================
-// =============== ADMIN ===================
-// =========================================
+// ==================== AKIDAH (1 RESPONSE) ====================
 
+// POST /challenge/akidah
+router.post("/akidah", authenticate, async (req, res) => {
+  const { id_challenge, challenge_response, is_completed } = req.body;
+
+  try {
+    const connection = await pool.getConnection();
+
+    await connection.execute(
+      `INSERT INTO amazing_challenge_akidah 
+        (id_challenge, challenge_response, is_completed)
+        VALUES (?, ?, ?)`,
+      [id_challenge, challenge_response ?? null, is_completed ?? 0]
+    );
+
+    await connection.execute(
+      `UPDATE amazing_challenge SET completed = ? WHERE id_challenge = ?`,
+      [is_completed ?? 0, id_challenge]
+    );
+
+    connection.release();
+    res.status(201).json({ message: "Sub-challenge akidah disimpan" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Gagal menyimpan sub-challenge akidah" });
+  }
+});
+
+// GET /challenge/akidah/:id
+router.get("/akidah/:id", authenticate, async (req, res) => {
+  const id_challenge = req.params.id;
+
+  try {
+    const connection = await pool.getConnection();
+    const [rows] = await connection.execute(
+      "SELECT * FROM amazing_challenge_akidah WHERE id_challenge = ?",
+      [id_challenge]
+    );
+    connection.release();
+    res.json(rows[0] ?? {});
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Gagal mengambil sub-akidah" });
+  }
+});
+
+// PUT /challenge/akidah/:id
+router.put("/akidah/:id", authenticate, async (req, res) => {
+  const id_challenge_ak = req.params.id;
+  const { challenge_response, is_completed } = req.body;
+
+  try {
+    const connection = await pool.getConnection();
+
+    await connection.execute(
+      "UPDATE amazing_challenge_akidah SET challenge_response = ?, is_completed = ? WHERE id_challenge_ak = ?",
+      [challenge_response, is_completed ?? 0, id_challenge_ak]
+    );
+
+    const [[{ id_challenge }]] = await connection.execute(
+      "SELECT id_challenge FROM amazing_challenge_akidah WHERE id_challenge_ak = ?",
+      [id_challenge_ak]
+    );
+
+    await connection.execute(
+      "UPDATE amazing_challenge SET completed = ? WHERE id_challenge = ?",
+      [is_completed ?? 0, id_challenge]
+    );
+
+    connection.release();
+    res.json({ message: "Sub-challenge akidah diperbarui" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Gagal update akidah" });
+  }
+});
+
+// ==================== ADMIN ====================
+
+// GET /challenge/all?day=3
 router.get("/all", [authenticate, isAdmin], async (req, res) => {
   const { day } = req.query;
 
@@ -229,6 +282,26 @@ router.get("/all", [authenticate, isAdmin], async (req, res) => {
   }
 });
 
+
+// GET /challenge/participant/:id
+router.get("/participant/:id", [authenticate, isAdmin], async (req, res) => {
+  const id_participant = req.params.id;
+
+  try {
+    const connection = await pool.getConnection();
+    const [rows] = await connection.execute(
+      `SELECT * FROM amazing_challenge WHERE id_participant = ? ORDER BY day`,
+      [id_participant]
+    );
+    connection.release();
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Gagal mengambil data challenge peserta" });
+  }
+});
+
+// DELETE /challenge/:id
 router.delete("/:id", [authenticate, isAdmin], async (req, res) => {
   const id_challenge = req.params.id;
 
