@@ -22,14 +22,5 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           server-dir: ${{ secrets.FTP_REMOTE_DIR }}
-          exclude: |
-            .git/
-            .github/
-            node_modules/
-            tmp/
-            *.zip
-            *.sql
-            *.log
-            README.md
 
 
