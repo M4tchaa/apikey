@@ -1,0 +1,34 @@
+name: Deploy Backend via FTP
+
+on:
+  workflow_dispatch:  # Trigger manual dari GitHub UI
+  push:
+    branches:
+      - deploys  # Hanya trigger jika kamu push ke branch ini
+
+jobs:
+  ftp-deploy:
+    name: Upload to Shared Hosting
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install FTP Deploy Tool
+        run: npm install -g ftp-deploy
+
+      - name: Upload Backend via FTP
+        run: |
+          npx ftp-deploy \
+            --user "${{ secrets.FTP_USERNAME }}" \
+            --password "${{ secrets.FTP_PASSWORD }}" \
+            --host "${{ secrets.FTP_HOST }}" \
+            --local "." \
+            --remote "${{ secrets.FTP_REMOTE_DIR }}" \
+            --port 21 \
+            --protocol ftp \
+            --exclude ".git/**,.github/**,node_modules/**,README.md"
+
+        env:
+          CI: false
