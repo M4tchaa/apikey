@@ -1,0 +1,11 @@
+DB_HOST=localhost
+DB_USER=root
+DB_PASS=
+DB_NAME=key
+
+REFRESH_TOKEN_SECRET=violetevergarden
+JWT_SECRET=shigatsuwakiminouso
+EMAIL_USER=no-reply@yukngajibogor.com
+EMAIL_PASS=no-reply1453
+SMTP_HOST=mail.yukngajibogor.com  # Ganti sesuai penyedia layanan email
+SMTP_PORT=465
