@@ -47,29 +47,38 @@ router.get('/:id_user', async (req, res) => {
 });
 
 // POST Tambah user baru (opsional bisa langsung buat profil)
-router.post('/', async (req, res) => {
+router.post('/', registerLimiter, async (req, res) => {
   try {
     let { username, email, password, role } = req.body;
 
-    // Validasi input wajib
     if (!username || !email || !password) {
-      return res.status(400).json({ success: false, message: "Username, email, and password are required" });
+      return res.status(400).json({ success: false, message: "Username, email, dan password wajib diisi." });
     }
 
-    // Jika role tidak diberikan, gunakan null
+    // Cek username unik
+    const [checkUser] = await db.execute('SELECT * FROM users WHERE username = ? AND deleted = 0', [username]);
+    if (checkUser.length > 0) {
+      return res.status(409).json({ success: false, message: "Username sudah digunakan." });
+    }
+
+    // Cek email unik
+    const [checkEmail] = await db.execute('SELECT * FROM users WHERE email = ? AND deleted = 0', [email]);
+    if (checkEmail.length > 0) {
+      return res.status(409).json({ success: false, message: "Email sudah digunakan." });
+    }
+
     role = role ?? null;
 
-    // Tambahkan user ke tabel users
     const userSql = `INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)`;
     const [userResult] = await db.execute(userSql, [username, email, password, role]);
 
-    res.json({ success: true, message: 'User created successfully', id_user: userResult.insertId });
+    res.json({ success: true, message: 'User berhasil dibuat.', id_user: userResult.insertId });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// PUT Update user dan profile berdasarkan id_user
+
 // PUT Update user dan profile berdasarkan id_user
 router.put('/:id_user', async (req, res) => {
   try {
@@ -213,6 +222,39 @@ router.delete('/hard/:id_user', [authenticate, isSuperAdmin], async (req, res) =
     await db.execute('DELETE FROM users WHERE id_user = ?', [id_user]);
 
     res.json({ success: true, message: 'User berhasil dihapus secara permanen.' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// GET cek username & email unik
+router.get('/check/username/:username', checkLimiter, async (req, res) => {
+  try {
+    const { username } = req.params;
+
+    const [result] = await db.execute('SELECT * FROM users WHERE username = ? AND deleted = 0', [username]);
+
+    if (result.length > 0) {
+      return res.json({ success: true, available: false, message: 'Username sudah terdaftar.' });
+    }
+
+    res.json({ success: true, available: true, message: 'Username tersedia.' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.get('/check/email/:email', checkLimiter, async (req, res) => {
+  try {
+    const { email } = req.params;
+
+    const [result] = await db.execute('SELECT * FROM users WHERE email = ? AND deleted = 0', [email]);
+
+    if (result.length > 0) {
+      return res.json({ success: true, available: false, message: 'Email sudah terdaftar.' });
+    }
+
+    res.json({ success: true, available: true, message: 'Email tersedia.' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

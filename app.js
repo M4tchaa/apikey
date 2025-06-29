@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
+const { checkLimiter, registerLimiter } = require('../middleware/rateLimiter');
 require("dotenv").config();
 
 const authRoutes = require("./routes/auth");
@@ -9,6 +10,7 @@ const groupRoutes = require("./routes/group");
 const userProfiles = require('./routes/userProfiles');
 const challenge = require('./routes/challenge');
 const modules = require('./routes/modules');
+
 
 const app = express();
 

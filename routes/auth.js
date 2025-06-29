@@ -4,6 +4,7 @@ const pool = require("../db");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
 const transporter = require("../config/email");
+const { loginLimiter } = require('../middleware/rateLimiter');
 const { body, validationResult } = require("express-validator");
 
 const router = express.Router();
@@ -93,7 +94,7 @@ router.post(
   [
     body("identifier").notEmpty().withMessage("Email atau username wajib diisi"),
     body("password").notEmpty().withMessage("Password wajib diisi"),
-  ],
+  ], loginLimiter,
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {

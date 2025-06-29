@@ -1,9 +1,8 @@
-# Abaikan semua folder besar dan file tidak perlu dulu
-node_modules/
 .git/
 .github/
-*.sql
+node_modules/
 tmp/
-middleware/
-routes/
-config/
+*.zip
+*.sql
+*.log
+README.md
